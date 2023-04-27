@@ -43,7 +43,17 @@ function readCredentials(r) {
     // TODO: Change the generic constants naming for multiple AWS services.
     if ('S3_ACCESS_KEY_ID' in process.env && 'S3_SECRET_KEY' in process.env) {
         const sessionToken = 'S3_SESSION_TOKEN' in process.env ?
-                              process.env['S3_SESSION_TOKEN'] : null;
+            process.env['S3_SESSION_TOKEN'] : null;
+        var keyObj = getAccessKeyByBucketName(r);
+        utils.debug_log(r, "Use " + keyObj.s3_access_key_id + "/" + keyObj.s3_secret_key + " for " + decodeURIComponent(r.variables.uri_path));
+        if (keyObj) {
+            return {
+                accessKeyId: keyObj.s3_access_key_id,
+                secretAccessKey: keyObj.s3_secret_key,
+                sessionToken: sessionToken,
+                expiration: null
+            };
+        }
         return {
             accessKeyId: process.env['S3_ACCESS_KEY_ID'],
             secretAccessKey: process.env['S3_SECRET_KEY'],
@@ -57,6 +67,32 @@ function readCredentials(r) {
     } else {
         return _readCredentialsFromFile();
     }
+}
+
+/**
+ * get access keys by bucket name in url
+*/
+function getAccessKeyByBucketName(r) {
+    var bjson = getBucketMapFromFile(r);
+    const uriPath = decodeURIComponent(r.variables.uri_path);
+    const reqBucketName = uriPath.split('/')[1];
+    return bjson[reqBucketName];
+}
+
+/**
+ * Read bucket map from file and convert to json
+*/
+function getBucketMapFromFile(r) {
+    const bucketMap = fs.readFileSync(process.env['BUCKET_MAP_FILE']);
+    var bucketJson = JSON.parse(bucketMap);
+    for (const bucketName in bucketJson) {
+        let logstr = "";
+        logstr += "BUCKET_NAME=" + bucketName;
+        logstr += ", " + "S3_ACCESS_KEY_ID=" + bucketJson[bucketName].s3_access_key_id;
+        logstr += ", " + "S3_SECRET_KEY=" + bucketJson[bucketName].s3_secret_key;
+        utils.debug_log(r, logstr);
+    }
+    return bucketJson;
 }
 
 /**
